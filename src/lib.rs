@@ -2,7 +2,6 @@ pub mod api;
 pub mod model;
 pub mod pkg;
 pub mod sampler;
-pub mod traits;
 
 use once_cell::sync::Lazy;
 use pkg::config::config::Config;
