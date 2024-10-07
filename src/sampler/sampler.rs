@@ -1,8 +1,5 @@
-use crate::model::evm;
 use crate::pkg::config::config::Chain;
 use alloy::providers::{Provider, ProviderBuilder};
-use alloy::rpc::client::RpcClient;
-use alloy::signers::k256::elliptic_curve::rand_core::block;
 use eyre::Result;
 use foundry_block_explorers::account::{NormalTransaction, Sort, TxListParams};
 use foundry_block_explorers::Client;
