@@ -6,11 +6,11 @@ use std::path::Path;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    pub chains: Vec<Chain>,
+    pub chains: Vec<ChainConfig>,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct Chain {
+pub struct ChainConfig {
     pub id: u64,
     pub name: String,
     pub alias: String,

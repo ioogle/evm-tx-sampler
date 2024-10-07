@@ -1,21 +1,19 @@
-use crate::pkg::config::config::Chain;
-use alloy::providers::{Provider, ProviderBuilder};
+use crate::pkg::config::{client::*, config::ChainConfig};
 use eyre::Result;
 use foundry_block_explorers::account::{NormalTransaction, Sort, TxListParams};
-use foundry_block_explorers::Client;
 use std::collections::HashMap;
 
 pub struct Sampler {}
 
 impl Sampler {
     pub async fn transaction_samples(
-        chain: &Chain,
+        chain: &ChainConfig,
         address: &str,
     ) -> Result<HashMap<String, NormalTransaction>> {
-        let provider = Self::new_rpc_client(chain).await?;
+        let provider = new_rpc_client(chain).await?;
         let block_number = provider.get_block_number().await?;
 
-        let scan_client  = Self::new_scan_client(chain)?;
+        let scan_client = new_scan_client(chain)?;
         let transactions = scan_client
             .get_transactions(
                 &address.parse()?,
@@ -43,20 +41,5 @@ impl Sampler {
         }
 
         Ok(result)
-    }
-
-    pub fn new_scan_client(chain: &Chain) -> Result<Box<Client>> {
-        let client = Client::new(
-            alloy_chains::Chain::from_id(chain.id),
-            chain.etherscan_api_token.clone(),
-        )?;
-
-        Ok(Box::new(client))
-    }
-
-    pub async fn new_rpc_client(chain: &Chain) -> Result<Box<dyn Provider>> {
-        let provider = ProviderBuilder::new().on_builtin(&chain.rpc).await?;
-
-        Ok(Box::new(provider))
     }
 }
