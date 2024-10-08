@@ -9,7 +9,7 @@ pub struct Config {
     pub chains: Vec<ChainConfig>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ChainConfig {
     pub id: u64,
     pub name: String,
