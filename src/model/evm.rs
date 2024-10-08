@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use crate::pkg::config::{client::*, config::ChainConfig};
-use alloy::primitives::*;
+use alloy::{primitives::*, providers::Provider};
 use eyre::{OptionExt, Result};
 use hex::ToHexExt;
 use map::hash_map::HashMap;
@@ -76,9 +76,11 @@ impl Transaction {
             to = format!("0x{}", to_raw.encode_hex());
         }
 
-        let (function_map, _) =
+        let (function_map, event_map) =
             Self::function_event_map(chain_config, &tx.to.ok_or_eyre("empty to")?).await?;
         let method_signature = function_map.get(&method_id).cloned();
+
+        let receipt = Receipt::new(provider, tx_hash, &event_map).await?;
 
         Ok(Self {
             block_hash: block_hash,
@@ -99,7 +101,7 @@ impl Transaction {
             transaction_index: tx.transaction_index.ok_or_eyre("invalid tx index")?,
             transaction_type: tx.transaction_type.ok_or_eyre("invalid tx type")?,
             value: tx.value.to_string(),
-            receipt: None,
+            receipt: receipt,
         })
     }
 
@@ -143,22 +145,73 @@ impl Transaction {
 #[derive(Debug)]
 pub struct Log {
     pub address: String,
-    pub chain: Box<ChainConfig>,
     pub data: String,
     pub event_id: String, // e.g. 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef
-    pub event_signature: String, // e.g. Transfer (index_topic_1 address from, index_topic_2 address to, uint256 value)
-    pub hash: String,
-    pub log_index: u64,
-    pub topics: Vec<Option<String>>,
+    pub event_signature: Option<String>, // e.g. Transfer (index_topic_1 address from, index_topic_2 address to, uint256 value)
+    pub log_index: Option<u64>,
+    pub topics: Vec<String>,
 }
 
 #[derive(Debug)]
 pub struct Receipt {
     pub contract_address: Option<String>, // null if contract creation
-    pub cumulative_gas_used: u64,
-    pub effective_gas_price: u64,
-    pub gas_used: u64,
+    pub effective_gas_price: u128,
+    pub gas_used: u128,
     pub hash: String,
     pub logs: Vec<Log>,
-    pub status: String, // 1 - success; 0 - failed
+    pub status: bool,
+}
+
+impl Receipt {
+    pub async fn new(
+        provider: Box<dyn Provider>,
+        tx_hash: &str,
+        event_map: &HashMap<String, String>,
+    ) -> Result<Option<Receipt>> {
+        let tx_hash_b256 = B256::from_str(tx_hash)?;
+        let receipt_option = provider.get_transaction_receipt(tx_hash_b256).await?;
+
+        let receipt = match receipt_option {
+            Some(r) => r,
+            None => return Ok(None),
+        };
+
+        let contract_address = receipt.contract_address.map(|addr| format!("{:#x}", addr));
+
+        let logs = receipt
+            .inner
+            .logs()
+            .into_iter()
+            .map(|log| {
+                let event_id = log
+                    .topic0()
+                    .map(|topic| format!("{:#x}", topic))
+                    .unwrap_or_else(|| "0x0".to_string());
+
+                let event_signature = event_map.get(&event_id).cloned();
+
+                Log {
+                    address: format!("{:#x}", log.address()),
+                    data: hex::encode(log.data().data.clone()),
+                    event_id: event_id,
+                    event_signature: event_signature,
+                    log_index: log.log_index,
+                    topics: log
+                        .topics()
+                        .into_iter()
+                        .map(|topic| format!("{:#x}", topic))
+                        .collect(),
+                }
+            })
+            .collect();
+
+        Ok(Some(Self {
+            contract_address: contract_address,
+            effective_gas_price: receipt.effective_gas_price,
+            gas_used: receipt.gas_used,
+            hash: format!("{:#x}", receipt.transaction_hash),
+            logs: logs,
+            status: receipt.status(),
+        }))
+    }
 }
