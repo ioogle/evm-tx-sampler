@@ -26,3 +26,8 @@ Cargo.lock
 
 **/*.env
 **/**production.toml
+
+# Python
+__pycache__/
+*.py[cod]
+.env
