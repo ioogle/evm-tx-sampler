@@ -3,7 +3,8 @@ use std::iter::Once;
 use crate::api::utils::ResponseWrapper;
 use crate::sampler::sampler;
 use crate::CONFIG;
-use actix_web::{get, web, HttpResponse, Responder};
+use actix_web::{get, http::header::q, web, HttpResponse, Responder};
+use alloy::consensus::Receipt;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
@@ -18,6 +19,7 @@ struct SampleItem {
     tx_hash: String,
     method_id: String,
     method_signature: String,
+    logs: Vec<(String, String)>, // (event id, event signature)
 }
 
 #[get("/sample")]
@@ -32,18 +34,38 @@ async fn sample_handler(query: web::Query<SampleQuery>) -> impl Responder {
     let transactions = sampler::Sampler::transaction_samples(&chain_config, &query.address).await;
     match transactions {
         Ok(txs) => {
-            let items: Vec<SampleItem> = txs.iter().map(|tx| SampleItem{
-                chain: query.chain.clone(),
-                tx_hash: tx.hash.clone(),
-                method_id: tx.method_id.clone(),
-                method_signature: tx.method_signature.clone().unwrap_or_default(),
-            }).collect();
+            let items: Vec<SampleItem> = txs
+                .iter()
+                .map(|tx| SampleItem {
+                    chain: query.chain.clone(),
+                    tx_hash: tx.hash.clone(),
+                    method_id: tx.method_id.clone(),
+                    method_signature: tx.method_signature.clone().unwrap_or("".to_string()),
+                    logs: if let Some(receipt) = &tx.receipt {
+                        println!("{:?}", receipt.logs);
+                        receipt
+                            .logs
+                            .iter()
+                            .filter(|log| log.address.eq_ignore_ascii_case(&query.address))
+                            .map(|log| {
+                                (
+                                    log.event_id.to_string(),
+                                    log.event_signature.clone().unwrap_or("".to_string()),
+                                )
+                            })
+                            .collect()
+                    } else {
+                        Vec::new()
+                    },
+                })
+                .collect();
             response.status = 1;
             response.data = Some(items);
             HttpResponse::Ok().json(response)
-        },
+        }
         Err(e) => {
-            response.error_message = Some(format!("{}", e));
+            println!("{}", e);
+            response.error_message = Some("error: please try it again or check the logs".to_string());
             HttpResponse::BadRequest().json(response)
         }
     }

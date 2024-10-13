@@ -95,6 +95,7 @@ impl Transaction {
             gas_price: tx.gas_price,
             max_priority_fee_per_gas: tx.max_priority_fee_per_gas,
             max_fee_per_gas: tx.max_fee_per_gas,
+            // hash: format!("0x{}", String::from_str(tx_hash)?),
             hash: String::from_str(tx_hash)?,
             input: tx.input.encode_hex(),
             method_id: method_id,
@@ -166,6 +167,7 @@ impl Receipt {
                     .unwrap_or_else(|| "0x0".to_string());
 
                 let event_signature = event_map.get(&event_id).cloned();
+                println!("{} {:?} {:?}", event_id, event_signature, event_map);
 
                 Log {
                     address: format!("{:#x}", log.address()),
@@ -199,7 +201,7 @@ impl Receipt {
     convert = r#"{ format!("{}{}", chain_config.name, address.encode_hex()) }"#,
     result = true,
 )]
-async fn function_event_map(
+pub async fn function_event_map(
     chain_config: &ChainConfig,
     address: &Address,
 ) -> Result<(HashMap<String, String>, HashMap<String, String>)> {
