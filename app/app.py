@@ -33,6 +33,29 @@ address = st.text_input('Address', value=default_address)
 
 evm_address_regex = r'^0x[a-fA-F0-9]{40}$'
 
+# 定义转换函数
+def snake_to_title(snake_str):
+    components = snake_str.split('_')
+    titled = ' '.join(x.capitalize() for x in components)
+    return titled
+
+def display_json(data, indent=0):
+    spacing = " " * (indent * 4)
+    if isinstance(data, dict):
+        for key, value in data.items():
+            title = snake_to_title(key)
+            if isinstance(value, (dict, list)):
+                st.markdown(f"**{title}:**")
+                display_json(value, indent + 1)
+            else:
+                st.write(f"**{title}:** {value}")
+    elif isinstance(data, list):
+        for idx, item in enumerate(data, start=1):
+            st.markdown(f"**项 {idx}:**")
+            display_json(item, indent + 1)
+    else:
+        st.write(data)
+
 def main():
     if st.button('Submit'):
         if not re.match(evm_address_regex, address):
@@ -43,36 +66,29 @@ def main():
         st.query_params.chain = chain
         st.query_params.address = address
 
-        demo()
-        return
-
         url = config.backend_url + '/sample'
-        response = requests.get(url)
+        response = requests.get(url, params={"chain": chain, "address": address})
 
-        if response.status_code == 200:
-            data = response.json()
+        st.header("Response status")
+        status = response.get("status")
+        error_message = response.get("error_message")
 
-            # methods
-            st.subheader('Methods')
-            methods = data.get('methods', [])
-            for method in methods:
-                st.write(f"Name: {method['name']}")
-                st.write(f"ID: {method['id']}")
-                st.write(f"Signature: {method['signature']}")
-                st.write(f"Sample TX: {method['sample_tx']}")
-                st.write("---")
-
-            # events
-            st.subheader('Events')
-            events = data.get('events', [])
-            for event in events:
-                st.write(f"Name: {event['name']}")
-                st.write(f"ID: {event['id']}")
-                st.write(f"Signature: {event['signature']}")
-                st.write(f"Sample TX: {event['sample_tx']}")
-                st.write("---")
+        st.write(f"**Status:** {status}")
+        if error_message:
+            st.write(f"**Error Message:** {error_message}")
         else:
-            st.error('Failed to fetch data. Please try again.')
+            st.write("**Error Message:** None")
+
+        st.markdown("---")  # 分割线
+
+        data = response.get("data", [])
+
+        if not data:
+            st.write("No transaction data to display.")
+        else:
+            for idx, item in enumerate(data, start=1):
+                with st.expander(f"Transaction {idx}: {item.get('tx_hash')}"):
+                    display_json(item)
 
 def demo():
     # Demo data
