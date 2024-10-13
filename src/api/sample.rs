@@ -1,10 +1,7 @@
-use std::iter::Once;
-
 use crate::api::utils::ResponseWrapper;
 use crate::sampler::sampler;
 use crate::CONFIG;
-use actix_web::{get, http::header::q, web, HttpResponse, Responder};
-use alloy::consensus::Receipt;
+use actix_web::{get, web, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]

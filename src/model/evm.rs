@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use crate::pkg::config::{client::*, config::ChainConfig};
-use alloy::signers::k256::elliptic_curve::weierstrass::add;
+use crate::pkg::proxy::proxy::ProxyDetector;
 use alloy::{primitives::*, providers::Provider};
 use eyre::{OptionExt, Result};
 use hex::ToHexExt;
@@ -80,8 +80,16 @@ impl Transaction {
             to = format!("0x{}", to_raw.encode_hex());
         }
 
+        let proxy_detector = ProxyDetector::new(chain_config).await?;
+        let proxy = proxy_detector.detect_proxy_target(to.as_ref()).await?;
+
+        let mut impl_address = tx.to.ok_or_eyre("empty to")?;
+        if let Some(addr) = proxy.target {
+            impl_address = addr;
+        }
+
         let (function_map, event_map) =
-            function_event_map(chain_config, &tx.to.ok_or_eyre("empty to")?).await?;
+            function_event_map(chain_config, &impl_address).await?;
         let method_signature = function_map.get(&method_id).cloned();
 
         let receipt = Receipt::new(provider, tx_hash, &event_map).await?;

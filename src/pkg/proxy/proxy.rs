@@ -7,6 +7,13 @@ use eyre::{eyre, Result};
 use futures::join;
 use std::boxed::Box;
 use std::str::FromStr;
+use lazy_static::lazy_static;
+use std::collections::HashMap;
+use std::sync::Mutex;
+
+lazy_static! {
+    static ref CACHE: Mutex<HashMap<String, DetectResult>> = Mutex::new(HashMap::new());
+}
 
 // contants
 const EIP_1967_LOGIC_SLOT: &str =
@@ -47,14 +54,14 @@ enum ProxyType {
 }
 
 // detection result
-#[derive(Debug)]
-struct DetectResult {
-    standard: String,
-    target: Option<Address>,
+#[derive(Debug, Clone)]
+pub struct DetectResult {
+    pub standard: String,
+    pub target: Option<Address>,
 }
 
 // detector
-struct ProxyDetector {
+pub struct ProxyDetector {
     provider: Box<dyn Provider>,
 }
 
@@ -68,6 +75,13 @@ impl ProxyDetector {
         let address = proxy_address
             .parse::<Address>()
             .map_err(|e| eyre!("Invalid proxy address {}: {}", proxy_address, e))?;
+
+        // Check cache first
+        let mut cache = CACHE.lock().unwrap();
+        if let Some(result) = cache.get(proxy_address) {
+            return Ok(result.clone());
+        }
+
 
         // 使用 join! 宏并行执行 futures
         let (
@@ -131,17 +145,21 @@ impl ProxyDetector {
 
         for (key, result) in results {
             if let Ok(Some(target)) = result {
-                return Ok(DetectResult {
+                let detect_reuslt = DetectResult {
                     standard: key.to_string(),
                     target: Some(target),
-                });
+                };
+                cache.insert(proxy_address.to_string(), detect_reuslt.clone());
+                return Ok(detect_reuslt);
             }
         }
-
-        Ok(DetectResult {
+        let detect_result= DetectResult {
             standard: "".to_string(),
             target: None,
-        })
+        };
+
+        cache.insert(proxy_address.to_string(), detect_result.clone());
+        Ok(detect_result)
     }
 
     // read address from the storage slot
