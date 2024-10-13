@@ -1,5 +1,5 @@
 [app]
-backend_url = "https://evm.ioogle.io/api"
+backend_url = "http://localhost:8080"
 
 [[chains]]
 id = 1

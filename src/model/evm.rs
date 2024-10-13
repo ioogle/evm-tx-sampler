@@ -1,10 +1,14 @@
 use std::str::FromStr;
 
 use crate::pkg::config::{client::*, config::ChainConfig};
+use alloy::signers::k256::elliptic_curve::weierstrass::add;
 use alloy::{primitives::*, providers::Provider};
 use eyre::{OptionExt, Result};
 use hex::ToHexExt;
 use map::hash_map::HashMap;
+
+use cached::proc_macro::cached;
+use cached::SizedCache;
 
 #[derive(Debug)]
 pub struct ContractInfo {
@@ -77,7 +81,7 @@ impl Transaction {
         }
 
         let (function_map, event_map) =
-            Self::function_event_map(chain_config, &tx.to.ok_or_eyre("empty to")?).await?;
+            function_event_map(chain_config, &tx.to.ok_or_eyre("empty to")?).await?;
         let method_signature = function_map.get(&method_id).cloned();
 
         let receipt = Receipt::new(provider, tx_hash, &event_map).await?;
@@ -112,33 +116,6 @@ impl Transaction {
         let method_id_bytes = &input[..4];
 
         Ok(format!("0x{}", hex::encode(method_id_bytes)))
-    }
-
-    async fn function_event_map(
-        chain_config: &ChainConfig,
-        address: &Address,
-    ) -> Result<(HashMap<String, String>, HashMap<String, String>)> {
-        let scan = new_scan_client(chain_config)?;
-        let abi = scan.contract_abi(address.clone()).await?;
-
-        let mut function_map = HashMap::new();
-        let mut event_map = HashMap::new();
-
-        for item in abi.functions() {
-            let signature = item.full_signature();
-            let selector = item.selector();
-            let selector_hex = format!("0x{}", hex::encode(&selector));
-            function_map.insert(selector_hex, signature);
-        }
-
-        for item in abi.events() {
-            let signature = item.full_signature();
-            let selector = item.selector();
-            let selector_hex = format!("0x{}", hex::encode(&selector));
-            event_map.insert(selector_hex, signature);
-        }
-
-        Ok((function_map, event_map))
     }
 }
 
@@ -214,4 +191,37 @@ impl Receipt {
             status: receipt.status(),
         }))
     }
+}
+
+#[cached(
+    ty = "SizedCache<String, (HashMap<String, String>, HashMap<String, String>)>",
+    create = "{ SizedCache::with_size(100) }",
+    convert = r#"{ format!("{}{}", chain_config.name, address.encode_hex()) }"#,
+    result = true,
+)]
+async fn function_event_map(
+    chain_config: &ChainConfig,
+    address: &Address,
+) -> Result<(HashMap<String, String>, HashMap<String, String>)> {
+    let scan = new_scan_client(chain_config)?;
+    let abi = scan.contract_abi(address.clone()).await?;
+
+    let mut function_map = HashMap::new();
+    let mut event_map = HashMap::new();
+
+    for item in abi.functions() {
+        let signature = item.full_signature();
+        let selector = item.selector();
+        let selector_hex = format!("0x{}", hex::encode(&selector));
+        function_map.insert(selector_hex, signature);
+    }
+
+    for item in abi.events() {
+        let signature = item.full_signature();
+        let selector = item.selector();
+        let selector_hex = format!("0x{}", hex::encode(&selector));
+        event_map.insert(selector_hex, signature);
+    }
+
+    Ok((function_map, event_map))
 }

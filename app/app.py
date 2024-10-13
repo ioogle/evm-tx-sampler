@@ -2,6 +2,8 @@ import streamlit as st
 import requests
 import regex as re
 
+from st_social_media_links import SocialMediaIcons
+
 from config import config
 
 # Title
@@ -50,7 +52,7 @@ def main():
         if response.status_code == 200:
             data = response.json()
 
-            # 显示methods列表
+            # methods
             st.subheader('Methods')
             methods = data.get('methods', [])
             for method in methods:
@@ -60,7 +62,7 @@ def main():
                 st.write(f"Sample TX: {method['sample_tx']}")
                 st.write("---")
 
-            # 显示events列表
+            # events
             st.subheader('Events')
             events = data.get('events', [])
             for event in events:
@@ -114,3 +116,15 @@ def demo():
         st.write("---")
 
 main()
+
+social_media_links = [
+    "https://x.com/ioogleio",
+    "https://www.youtube.com/@ioogleio",
+    "https://github.com/ioogle",
+    "https://medium.com/@ioogle",
+    "https://www.linkedin.com/in/hui-zeng-6a18381b6/",
+]
+
+social_media_icons = SocialMediaIcons(social_media_links)
+
+social_media_icons.render()

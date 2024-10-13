@@ -3,8 +3,6 @@ use crate::CONFIG;
 
 #[cfg(test)]
 mod tests {
-    use alloy::hex::ToHexExt;
-
     use super::*;
 
     #[tokio::test]
@@ -16,12 +14,12 @@ mod tests {
         match result {
             Ok(transactions) => {
                 assert!(!transactions.is_empty(), "transactions should not be empty");
-                for (method_id, tx) in transactions {
-                    if let Some(hash) = tx.hash.value() {
-                        // avoid tx.hash.value().unwrap()
-                        println!("{} : {}", method_id, hash.encode_hex());
-                    } else {
-                        println!("{} : (no hash available)", method_id);
+                for tx in transactions {
+                    println!("{} {} {:?}", tx.hash, tx.method_id, tx.method_signature,);
+                    if let Some(receipt) = tx.receipt {
+                        for log in receipt.logs {
+                            println!("{} {} {:?}", log.address, log.event_id, log.event_signature);
+                        }
                     }
                 }
             }
