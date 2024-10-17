@@ -3,48 +3,107 @@ import requests
 import regex as re
 
 from st_social_media_links import SocialMediaIcons
-
 from config import config
 
-# Title
-st.title('EVM Transaction Sampler')
+def main():
+    # Set page configuration
+    st.set_page_config(page_title='EVM Transaction Sampler', layout='wide')
+    
+    # Title
+    st.title('EVM Transaction Sampler')
 
-# Retrieve query parameters
-try:
-    default_chain = st.query_params.chain
-    default_address = st.query_params.address
-except Exception as e:
-    default_chain = "eth"
-    default_address = ""
+    # Initialize session state
+    init_session_state()
 
-# Chain selection dropdown
-chain_options = {"Ethereum": "eth", "Arbitrum": "arbitrum"}
-default_chain = next((name for name, value in chain_options.items() if value == default_chain), "Ethereum")
-chain = st.selectbox(
-    'Chain', 
-    options=list(chain_options.keys()), 
-    index=list(chain_options.keys()).index(default_chain), 
-    help="Currently, only Ethereum is supported.",
-    disabled=True,
+    # Render input section
+    render_input_section()
+
+    # Render social media links
+    render_social_media_links()
+
+def init_session_state():
+    if 'button_disabled' not in st.session_state:
+        st.session_state.button_disabled = False
+
+def render_input_section():
+    # Define available chain options
+    chain_options = {"Ethereum": "eth", "Arbitrum": "arbitrum"}
+    
+    # Get default values from query parameters
+    query_params = st.query_params
+    default_chain_value = query_params.get('chain', ['eth'])[0]
+    default_chain = next((name for name, value in chain_options.items() if value == default_chain_value), "Ethereum")
+    default_address = query_params.get('address', [''])[0]
+
+    # Display chain selection dropdown
+    chain = st.selectbox(
+        'Select Chain',
+        options=list(chain_options.keys()),
+        index=list(chain_options.keys()).index(default_chain),
+        help="Currently only Ethereum is supported.",
+        disabled=True
     )
 
-# Text inputs
-address = st.text_input('Address', value=default_address)
+    # Input address
+    address = st.text_input('Enter Address', value=default_address)
 
-evm_address_regex = r'^0x[a-fA-F0-9]{40}$'
+    # Submit button
+    st.button('Submit', on_click=submit, args=(chain_options[chain], address), disabled=st.session_state.button_disabled)
 
-# 定义转换函数
-def snake_to_title(snake_str):
-    components = snake_str.split('_')
-    titled = ' '.join(x.capitalize() for x in components)
-    return titled
+def submit(chain, address):
+    st.session_state.button_disabled = True
+    evm_address_regex = r'^0x[a-fA-F0-9]{40}$'
+    
+    with st.spinner('Loading...'):
+        if not re.match(evm_address_regex, address):
+            st.error('Please enter a valid EVM address.')
+            st.session_state.button_disabled = False
+            return
+
+        # Update query parameters
+        st.query_params.chain = chain
+        st.query_params.address =address
+
+        # Request data
+        url = config.backend_url + '/sample'
+        try:
+            response = requests.get(url, params={"chain": chain, "address": address}, timeout=60)
+            response.raise_for_status()
+            data = response.json()
+        except requests.exceptions.RequestException as e:
+            st.error(f"Error occurred while requesting data: {e}")
+            st.session_state.button_disabled = False
+            return
+
+        error_message = data.get("error_message")
+        if error_message:
+            st.warning(f"**Error Message:** {error_message}")
+        else:
+            display_data(data.get("data", []))
+            st.balloons()
+
+    st.session_state.button_disabled = False
+
+def display_data(data):
+    st.markdown("---")  # Divider
+
+    if not data:
+        st.info("No transaction data available to display.")
+        return
+
+    for idx, item in enumerate(data, start=1):
+        tx_hash = item.get('tx_hash', 'Unknown Hash')
+        with st.expander(f"Transaction {idx}: {tx_hash}"):
+            display_json(item)
 
 def display_json(data, indent=0):
-    spacing = " " * (indent * 4)
     if isinstance(data, dict):
         for key, value in data.items():
             title = snake_to_title(key)
-            if isinstance(value, (dict, list)):
+            if key == 'logs':
+                st.markdown(f"**{title}:**")
+                display_logs(value, indent + 1)
+            elif isinstance(value, (dict, list)):
                 st.markdown(f"**{title}:**")
                 display_json(value, indent + 1)
             else:
@@ -56,53 +115,27 @@ def display_json(data, indent=0):
     else:
         st.write(data)
 
-if 'button_disabled' not in st.session_state:
-    st.session_state.button_disabled = False
+def display_logs(logs, indent=0):
+    for idx, log in enumerate(logs, start=1):
+        st.markdown(f"**Log {idx}:**")
+        st.write(f"**Event ID:** {log[0]}")
+        st.write(f"**Event Signature:** {log[1]}")
 
-def submit():
-    st.session_state.button_disabled = True
-    with st.spinner('Loading...'):
-        if not re.match(evm_address_regex, address):
-            st.error('Invalid EVM address. Please enter a valid address.')
-            return
+def snake_to_title(snake_str):
+    components = snake_str.split('_')
+    titled = ' '.join(x.capitalize() for x in components)
+    return titled
 
-        # Set URL parameters
-        st.query_params.chain = chain
-        st.query_params.address = address
+def render_social_media_links():
+    social_media_links = [
+        "https://x.com/ioogleio",
+        "https://www.youtube.com/@ioogleio",
+        "https://github.com/ioogle",
+        "https://medium.com/@ioogle",
+        "https://www.linkedin.com/in/hui-zeng-6a18381b6/",
+    ]
+    social_media_icons = SocialMediaIcons(social_media_links)
+    social_media_icons.render()
 
-        url = config.backend_url + '/sample'
-        response = requests.get(url, params={"chain": chain, "address": address})
-
-        data = response.json()
-        error_message = data.get("error_message")
-
-        if error_message:
-            st.warning(f"**Error Message:** {error_message}")
-        else:
-            st.markdown("---")  # 分割线
-
-            data = data.get("data", [])
-
-            if not data:
-                st.write("No transaction data to display.")
-            else:
-                for idx, item in enumerate(data, start=1):
-                    with st.expander(f"Transaction {idx}: {item.get('tx_hash')}"):
-                        display_json(item)
-            st.balloons()
-
-    st.session_state.button_disabled = False
-
-st.button('Submit', on_click=submit, disabled=st.session_state.button_disabled)
-
-social_media_links = [
-    "https://x.com/ioogleio",
-    "https://www.youtube.com/@ioogleio",
-    "https://github.com/ioogle",
-    "https://medium.com/@ioogle",
-    "https://www.linkedin.com/in/hui-zeng-6a18381b6/",
-]
-
-social_media_icons = SocialMediaIcons(social_media_links)
-
-social_media_icons.render()
+if __name__ == "__main__":
+    main()
