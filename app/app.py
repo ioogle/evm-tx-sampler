@@ -50,10 +50,9 @@ def display_json(data, indent=0):
             else:
                 st.write(f"**{title}:** {value}")
     elif isinstance(data, list):
-        st.markdown(f"**Event ID:**")
-        display_json(data[0], indent + 1)
-        st.markdown(f"**Event Signature:**")
-        display_json(data[1], indent + 1)
+        for idx, item in enumerate(data, start=1):
+            st.markdown(f"**Item {idx}:**")
+            display_json(item, indent + 1)
     else:
         st.write(data)
 
