@@ -5,37 +5,30 @@ import regex as re
 from st_social_media_links import SocialMediaIcons
 from config import config
 
+
 def main():
-    # Set page configuration
     st.set_page_config(page_title='EVM Transaction Sampler', layout='wide')
-    
-    # Title
     st.title('EVM Transaction Sampler')
 
-    # Initialize session state
     init_session_state()
-
-    # Render input section
     render_input_section()
-
-    # Render social media links
+    display_results()
     render_social_media_links()
 
 def init_session_state():
-    if 'button_disabled' not in st.session_state:
-        st.session_state.button_disabled = False
+    if 'button_clicked' not in st.session_state:
+        st.session_state.button_clicked = False
+    if 'results' not in st.session_state:
+        st.session_state.results = None
 
 def render_input_section():
-    # Define available chain options
     chain_options = {"Ethereum": "eth", "Arbitrum": "arbitrum"}
     
-    # Get default values from query parameters
     query_params = st.query_params
     default_chain_value = query_params.get('chain', ['eth'])[0]
     default_chain = next((name for name, value in chain_options.items() if value == default_chain_value), "Ethereum")
     default_address = query_params.get('address', [''])[0]
 
-    # Display chain selection dropdown
     chain = st.selectbox(
         'Select Chain',
         options=list(chain_options.keys()),
@@ -44,45 +37,52 @@ def render_input_section():
         disabled=True
     )
 
-    # Input address
     address = st.text_input('Enter Address', value=default_address)
 
-    # Submit button
-    st.button('Submit', on_click=submit, args=(chain_options[chain], address), disabled=st.session_state.button_disabled)
+    if not st.session_state.button_clicked:
+        if st.button('Submit', key='submit_button'):
+            st.session_state.button_clicked = True
+            st.session_state.chain = chain_options[chain]
+            st.session_state.address = address
+            submit(st.session_state.chain, st.session_state.address)
 
 def submit(chain, address):
-    st.session_state.button_disabled = True
     evm_address_regex = r'^0x[a-fA-F0-9]{40}$'
     
     with st.spinner('Loading...'):
         if not re.match(evm_address_regex, address):
-            st.error('Please enter a valid EVM address.')
-            st.session_state.button_disabled = False
+            st.session_state.results = {'error': 'Please enter a valid EVM address.'}
+            st.session_state.button_clicked = False
             return
 
-        # Update query parameters
         st.query_params.chain = chain
-        st.query_params.address =address
+        st.query_params.address = address
 
-        # Request data
         url = config.backend_url + '/sample'
         try:
             response = requests.get(url, params={"chain": chain, "address": address}, timeout=60)
             response.raise_for_status()
             data = response.json()
         except requests.exceptions.RequestException as e:
-            st.error(f"Error occurred while requesting data: {e}")
-            st.session_state.button_disabled = False
+            st.session_state.results = {'error': f"Error occurred while requesting data: {e}"}
+            st.session_state.button_clicked = False
             return
 
-        error_message = data.get("error_message")
-        if error_message:
-            st.warning(f"**Error Message:** {error_message}")
-        else:
-            display_data(data.get("data", []))
-            st.balloons()
+        st.session_state.results = data
 
-    st.session_state.button_disabled = False
+def display_results():
+    if st.session_state.results:
+        if 'error' in st.session_state.results:
+            st.error(st.session_state.results['error'])
+        else:
+            error_message = st.session_state.results.get("error_message")
+            if error_message:
+                st.warning(f"**Error Message:** {error_message}")
+            else:
+                display_data(st.session_state.results.get("data", []))
+                st.balloons()
+        # 在结果展示后，重置按钮状态
+        st.session_state.button_clicked = False
 
 def display_data(data):
     st.markdown("---")  # Divider
