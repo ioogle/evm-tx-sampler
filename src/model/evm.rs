@@ -80,6 +80,31 @@ impl Transaction {
             to = format!("0x{}", to_raw.encode_hex());
         }
 
+        if to == "0x" {
+            return Ok(Self {
+                block_hash: block_hash,
+                block_number: block_number,
+                chain: chain_config.clone(),
+                from_address: format!("0x{}", tx.from.encode_hex()),
+                gas: tx.gas,
+                gas_price: tx.gas_price,
+                max_priority_fee_per_gas: tx.max_priority_fee_per_gas,
+                max_fee_per_gas: tx.max_fee_per_gas,
+                // hash: format!("0x{}", String::from_str(tx_hash)?),
+                hash: String::from_str(tx_hash)?,
+                input: tx.input.encode_hex(),
+                method_id: method_id,
+                method_signature: None,
+                nonce: tx.nonce,
+                timestamp: block_timestamp,
+                to_address: to,
+                transaction_index: tx.transaction_index.ok_or_eyre("invalid tx index")?,
+                transaction_type: tx.transaction_type.ok_or_eyre("invalid tx type")?,
+                value: tx.value.to_string(),
+                receipt: None,
+            });
+        }
+
         let proxy_detector = ProxyDetector::new(chain_config).await?;
         let proxy = proxy_detector.detect_proxy_target(to.as_ref()).await?;
 
