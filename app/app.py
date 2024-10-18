@@ -27,7 +27,7 @@ def render_input_section():
     query_params = st.query_params
     default_chain_value = query_params.get('chain', ['eth'])[0]
     default_chain = next((name for name, value in chain_options.items() if value == default_chain_value), "Ethereum")
-    default_address = query_params.get('address', [''])[0]
+    default_address = query_params.get('address', ['0xC36442b4a4522E871399CD717aBDD847Ab11FE88'])[0]
 
     chain = st.selectbox(
         'Select Chain',
@@ -39,12 +39,11 @@ def render_input_section():
 
     address = st.text_input('Enter Address', value=default_address)
 
-    if not st.session_state.button_clicked:
-        if st.button('Submit', key='submit_button'):
-            st.session_state.button_clicked = True
-            st.session_state.chain = chain_options[chain]
-            st.session_state.address = address
-            submit(st.session_state.chain, st.session_state.address)
+    if st.button('Submit', key='submit_button', disabled=st.session_state.button_clicked):
+        st.session_state.button_clicked = True
+        st.session_state.chain = chain_options[chain]
+        st.session_state.address = address
+        submit(st.session_state.chain, st.session_state.address)
 
 def submit(chain, address):
     evm_address_regex = r'^0x[a-fA-F0-9]{40}$'
@@ -81,7 +80,6 @@ def display_results():
             else:
                 display_data(st.session_state.results.get("data", []))
                 st.balloons()
-        # 在结果展示后，重置按钮状态
         st.session_state.button_clicked = False
 
 def display_data(data):
