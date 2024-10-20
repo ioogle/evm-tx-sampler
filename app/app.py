@@ -25,9 +25,9 @@ def render_input_section():
     chain_options = {"Ethereum": "eth", "Arbitrum": "arbitrum"}
     
     query_params = st.query_params
-    default_chain_value = query_params.get('chain', ['eth'])[0]
+    default_chain_value = query_params.get('chain', 'eth')
     default_chain = next((name for name, value in chain_options.items() if value == default_chain_value), "Ethereum")
-    default_address = query_params.get('address', ['0xC36442b4a4522E871399CD717aBDD847Ab11FE88'])[0]
+    default_address = query_params.get('address', '0xC36442b4a4522E871399CD717aBDD847Ab11FE88')
 
     chain = st.selectbox(
         'Select Chain',
