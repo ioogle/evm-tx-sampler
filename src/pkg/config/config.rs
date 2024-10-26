@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use std::env;
-use std::error::Error;
+use eyre::{eyre, OptionExt, Result};
 use std::fs;
 use std::path::Path;
 
@@ -20,19 +20,26 @@ pub struct ChainConfig {
 }
 
 impl Config {
-    pub fn load<P: AsRef<Path>>(default_path: P) -> Result<Self, Box<dyn Error>> {
+    pub fn load<P: AsRef<Path>>(default_path: P) -> Result<Self> {
         Self::from_env().or_else(|_| Self::from_file(default_path))
     }
 
-    fn from_env() -> Result<Self, Box<dyn Error>> {
-        let config_str = env::var("CONFIG_CONTENT").map_err(|_| "CONFIG_CONTENT not found")?;
+    fn from_env() -> Result<Self> {
+        let config_str = env::var("CONFIG_CONTENT").map_err(|_| eyre!("CONFIG_CONTENT not found"))?;
         let config: Config = toml::from_str(&config_str)?;
         Ok(config)
     }
 
-    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn Error>> {
+    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let config_content = fs::read_to_string(path)?;
         let config: Config = toml::from_str(&config_content)?;
         Ok(config)
+    }
+
+    pub fn chain_by_name(&self, name: &str) -> Result<ChainConfig> {
+        self.chains.iter()
+        .find(|&chain| chain.name == name)
+        .cloned()
+        .ok_or_eyre(format!("Chain with name '{}' not found", name))
     }
 }

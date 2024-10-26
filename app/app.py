@@ -22,10 +22,10 @@ def init_session_state():
         st.session_state.results = None
 
 def render_input_section():
-    chain_options = {"Ethereum": "eth", "Arbitrum": "arbitrum"}
+    chain_options = config.chain_alias_to_name
     
     query_params = st.query_params
-    default_chain_value = query_params.get('chain', 'eth')
+    default_chain_value = query_params.get('chain', 'ethereum')
     default_chain = next((name for name, value in chain_options.items() if value == default_chain_value), "Ethereum")
     default_address = query_params.get('address', '0xC36442b4a4522E871399CD717aBDD847Ab11FE88')
 
@@ -33,8 +33,7 @@ def render_input_section():
         'Select Chain',
         options=list(chain_options.keys()),
         index=list(chain_options.keys()).index(default_chain),
-        help="Currently only Ethereum is supported.",
-        disabled=True
+        help="Currently only Ethereum, Arbitrum is supported."
     )
 
     address = st.text_input('Enter Address', value=default_address)
@@ -128,7 +127,7 @@ def render_social_media_links():
     social_media_links = [
         "https://x.com/ioogleio",
         "https://www.youtube.com/@ioogleio",
-        "https://github.com/ioogle",
+        "https://github.com/ioogle/evm-tx-sampler",
         "https://medium.com/@ioogle",
         "https://www.linkedin.com/in/hui-zeng-6a18381b6/",
     ]
