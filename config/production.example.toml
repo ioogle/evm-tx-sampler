@@ -4,7 +4,15 @@ backend_url = "http://localhost:8502"
 [[chains]]
 id = 1
 name = "ethereum"
-alias = "Ethereum Mainnet"
+alias = "Ethereum"
 block_explorer = "https://etherscan.io"
 etherscan_api_token = ""
 rpc = "https://eth-mainnet.g.alchemy.com/v2/"
+
+[[chains]]
+id = 42161
+name = "arbitrum"
+alias = "Arbitrum"
+block_explorer = "https://arbiscan.io"
+etherscan_api_token = ""
+rpc = "https://arb-mainnet.g.alchemy.com/v2/"
